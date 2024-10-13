@@ -1,0 +1,97 @@
+#include <iostream>
+using namespace std;
+
+
+class EstacionDeServicio{
+    private:
+        int tanque;
+        string nombre, codigo, gerente, region, ventas, surtidores;
+    public:
+        EstacionDeServicio( int, string, string, string, string, string, string); // Constructor 
+        ~EstacionDeServicio(); //destructor
+        agregar_surtidor(string _surtidor);
+        eliminar_surtidor(string _surtidor);
+        void setnombre(int, string, string, string, string, string, string); //Setter Cambiar nombre (cambia)
+        void getnombre(int, string, string, string, string, string, string); //Getter obtener valores (ver los valores{private}))
+        
+};
+
+// Constructor
+EstacionDeServicio::EstacionDeServicio(int _tanque, string _nombre, string _codigo, string _gerente, string _region, string _ventas, string _surtidores){
+    tanque = _tanque;
+    nombre = _nombre;
+    codigo = _codigo;
+    gerente = _gerente;
+    region = _region;
+    ventas = _ventas;
+    surtidores = _surtidores;
+}
+
+// Destructor
+EstacionDeServicio::~EstacionDeServicio(){
+}
+
+
+void EstacionDeServicio::setnombre(int _tanque, string _nombre, string _codigo, string _gerente, string _region, string _ventas, string _surtidores){ //Setter
+
+  //Funcion de cómo enviar  
+}
+
+void EstacionDeServicio::getnombre(int _tanque, string _nombre, string _codigo, string _gerente, string _region, string _ventas, string _surtidores){  //Getter
+    
+    //Funcion de obtener
+}
+
+
+
+
+
+class Surtidor{
+    private: //Atributos
+        string codigo, modelo;
+        bool activo;
+    public: //Metodos
+        Surtidor(string, string, bool); //Constructor
+        ~Surtidor(); // Destructor
+        registrar_venta(cantidad, combustible, metodo_pago, documento_cliente); //Registra una venta y actualiza el tanque
+        Activar();
+        Desactivar;
+        Consultar_historial();
+        
+};
+
+Surtidor::Surtidor(string _codigo, string _modelo){
+    string
+    
+}
+
+Surtidor::~Surtidor();{
+    
+}
+
+
+
+class RedEstaciones(){
+    private:
+    string Estaciones;
+    public:
+    RedEstaciones(string _Estaciones); // Constructor 
+    ~RedEstaciones(); // Destructor
+    agregar_estacion(string _estacion);
+    eliminar_estacion(string _codigo);
+    fijar_prcio_combustible(string region, string categoria, string precio);
+    venta_nacional();
+    
+};
+
+
+
+
+int main()
+{
+    
+    
+    std::cout<<"Hello World";
+
+    return 0;
+}
