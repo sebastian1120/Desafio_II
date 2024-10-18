@@ -1,97 +1,851 @@
+/* 
+Base del archivo de texto: Archivo txt, “datos”
+
+{ nombre estación, código de estación, nombre gerente, región, ubicación en coordenadas gps} 
+Capacidades: {Regular: 150, Premium: 150, EcoExtra: 150}, 
+Precios: {15000, 16000, 18000}, 
+Surtidores: [[1, Mrx, 1], [2, Bmw, 1]]}, 
+16/10/2024, 11:45, 50, Regular, Efectivo, Doc cliente
+
+Base general:
+
+Estaciones de servicio a nivel nacional
+Surtidores
+Disponibilidad de combustible en el tanque central
+Transacciones de venta del combustible en sus tres categorías:
+-	Regular
+-	Premium
+-	EcoExtra
+Registro de ventas
+*/
+
+
 #include <iostream>
+#include <fstream>
+#include <string>
+#include <iomanip>
 using namespace std;
 
+struct Estacion {
+    string nombre;
+    int codigo;
+    string gerente;
+    string region;
+    string coordenadas;
+    int precioRegular; 
+    int precioPremium; 
+    int precioEcoExtra;
+    
+    
+};
 
-class EstacionDeServicio{
-    private:
-        int tanque;
-        string nombre, codigo, gerente, region, ventas, surtidores;
-    public:
-        EstacionDeServicio( int, string, string, string, string, string, string); // Constructor 
-        ~EstacionDeServicio(); //destructor
-        agregar_surtidor(string _surtidor);
-        eliminar_surtidor(string _surtidor);
-        void setnombre(int, string, string, string, string, string, string); //Setter Cambiar nombre (cambia)
-        void getnombre(int, string, string, string, string, string, string); //Getter obtener valores (ver los valores{private}))
+struct Surtidor {
+    int codigo;
+    string modelo;
+    bool activo;
+};
+
+struct Venta {
+    int estacionCodigo;
+    string fecha;
+    string hora;
+    int cantidadCombustible;
+    string categoria;
+    string metodoPago;
+    string documentoCliente;
+    double monto;
+    int capacidadTanque;
+};
+
+
+class RedEstaciones {
+public:
+    RedEstaciones();
+    ~RedEstaciones();
+
+    void agregar_estacion(const Estacion& nuevaEstacion);
+    void eliminar_estacion(int codigo);
+    void agregar_surtidor(const Surtidor& nuevoSurtidor);
+    void eliminar_surtidor(int codigo);
+    void registrar_venta(const Venta& nuevaVenta);
+    void calcular_monto_total(int codigoEstacion);
+    void mostrar_datos();
+    void mostrar_estaciones();
+    bool todos_surtidores_inactivos(int codigoEstacion);
+    bool verificar_surtidor_activo(int codigoSurtidor);
+    void activar_desactivar_surtidor();
+    void asignar_precios_por_region();
+    bool verificar_precios_region(const string& region, int& precioRegular, int& precioPremium, int& precioEcoExtra);
+    double obtener_precio_por_categoria(const string& linea, const string& categoria);
+    void reportar_ventas_por_categoria(int estacionCodigo);
+    
+private:
+    int contadorEstaciones = 1;
+    int contadorSurtidores = 1;
+
+    int generarCodigoEstacion();
+    int generarCodigoSurtidor();
+};
+
+RedEstaciones::RedEstaciones() {}
+RedEstaciones::~RedEstaciones() {}
+
+// Generar un códigos únicos
+int RedEstaciones::generarCodigoEstacion() {
+    return contadorEstaciones++;
+}
+
+int RedEstaciones::generarCodigoSurtidor() {
+    return contadorSurtidores++;
+}
+
+void RedEstaciones::activar_desactivar_surtidor() {
+    int codigoSurtidor;
+    cout << "Ingrese el código del surtidor que desea activar/desactivar: ";
+    cin >> codigoSurtidor;
+
+    ifstream archivo("datos.txt");
+    ofstream temp("temp.txt");
+    string linea;
+    bool encontrado = false;
+
+    while (getline(archivo, linea)) {
+        // busca el surtidor en la línea
+        size_t pos = linea.find("[" + to_string(codigoSurtidor) + ",");
+        if (pos != string::npos) {
+            encontrado = true;
+
+            // extrae el estado actual del surtidor
+            size_t posEstado = linea.find(", ", pos);
+            if (posEstado != string::npos) {
+                // Buscar la segunda coma
+                posEstado = linea.find(", ", posEstado + 2);
+                if (posEstado != string::npos) {
+                    //después de la segunda coma y un espacio
+                    char estadoActual = linea[posEstado + 2];
+                    cout << "El surtidor está actualmente " << (estadoActual == '1' ? "activo" : "inactivo") << ".\n";
+
+                    char estado;
+                    cout << "¿Desea cambiar el estado? (a para activar, d para desactivar): ";
+                    cin >> estado;
+
+                    // actualiza
+                    if (estado == 'a' || estado == 'A') {
+                        linea.replace(posEstado + 2, 1, "1");
+                    } else if (estado == 'd' || estado == 'D') {
+                        linea.replace(posEstado + 2, 1, "0");
+                    } else {
+                        cout << "Opción inválida. No se realizó ningún cambio.\n";
+                    }
+
+                    cout << "Estado del surtidor actualizado.\n";
+                }
+            }
+        }
+        temp << linea << "\n";
+    }
+
+    archivo.close();
+    temp.close();
+
+    // reemplazar el archivo
+    remove("datos.txt");
+    rename("temp.txt", "datos.txt");
+
+    if (!encontrado) {
+        cout << "Surtidor no encontrado.\n";
+    }
+}
+
+void RedEstaciones::agregar_estacion(const Estacion& nuevaEstacion) {
+    Estacion estacion = nuevaEstacion;
+    estacion.codigo = generarCodigoEstacion();
+
+    int capacidadRegular, capacidadPremium, capacidadEcoExtra;
+
+    do {
+        cout << "Ingrese la capacidad de combustible regular (100 - 200): ";
+        cin >> capacidadRegular;
+        if (capacidadRegular < 100 || capacidadRegular > 200) {
+            cout << "Capacidad inválida. Debe estar entre 100 y 200.\n";
+        }
+    } while (capacidadRegular < 100 || capacidadRegular > 200);
+
+    do {
+        cout << "Ingrese la capacidad de combustible premium (100 - 200): ";
+        cin >> capacidadPremium;
+        if (capacidadPremium < 100 || capacidadPremium > 200) {
+            cout << "Capacidad inválida. Debe estar entre 100 y 200.\n";
+        }
+    } while (capacidadPremium < 100 || capacidadPremium > 200);
+
+    do {
+        cout << "Ingrese la capacidad de combustible EcoExtra (100 - 200): ";
+        cin >> capacidadEcoExtra;
+        if (capacidadEcoExtra < 100 || capacidadEcoExtra > 200) {
+            cout << "Capacidad inválida. Debe estar entre 100 y 200.\n";
+        }
+    } while (capacidadEcoExtra < 100 || capacidadEcoExtra > 200);
+
+    // Verifica precios para region
+    int precioRegularExistente, precioPremiumExistente, precioEcoExtraExistente;
+    bool preciosExistentes = verificar_precios_region(estacion.region, precioRegularExistente, precioPremiumExistente, precioEcoExtraExistente);
+
+    // Si ya hay precios usa esos, sino, los pide
+    if (preciosExistentes) {
+        cout << "Se encontraron precios existentes para la región " << estacion.region << ".\n";
+        estacion.precioRegular = precioRegularExistente;
+        estacion.precioPremium = precioPremiumExistente;
+        estacion.precioEcoExtra = precioEcoExtraExistente;
+    } else {
+        cout << "No se encontraron precios para la región. Ingrese nuevos precios:\n";
+        cout << "Ingrese el precio por litro de gasolina Regular: ";
+        cin >> estacion.precioRegular;
+        cout << "Ingrese el precio por litro de gasolina Premium: ";
+        cin >> estacion.precioPremium;
+        cout << "Ingrese el precio por litro de gasolina EcoExtra: ";
+        cin >> estacion.precioEcoExtra;
+    }
+
+    int numSurtidores;
+    do {
+        cout << "Ingrese el número de surtidores para la estación (mínimo 2, máximo 12): ";
+        cin >> numSurtidores;
+        if (numSurtidores < 2 || numSurtidores > 12) {
+            cout << "Número inválido. Debe ingresar entre 2 y 12 surtidores.\n";
+        }
+    } while (numSurtidores < 2 || numSurtidores > 12);
+
+    ofstream archivo("datos.txt", ios::app);
+    
+    archivo << "{" << estacion.nombre << ", " << estacion.codigo << ", "
+            << estacion.gerente << ", " << estacion.region << ", "
+            << estacion.coordenadas << ", Capacidades: {"
+            << "Regular: " << capacidadRegular << ", "
+            << "Premium: " << capacidadPremium << ", "
+            << "EcoExtra: " << capacidadEcoExtra << "}, "
+            << "Precios: {" << estacion.precioRegular << ", "
+            << estacion.precioPremium << ", "
+            << estacion.precioEcoExtra << "}, "
+            << "Surtidores: [";
+
+    for (int i = 0; i < numSurtidores; ++i) {
+        Surtidor surtidor;
+        surtidor.codigo = generarCodigoSurtidor();
+
+        cout << "Ingrese el modelo del surtidor #" << (i + 1) << ": ";
+        cin.ignore(); // Limpia el salto de línea pendiente antes de leer el modelo
+        getline(cin, surtidor.modelo);
         
-};
+        char estado;
+        do {
+            cout << "El surtidor #" << (i + 1) << " está activo? (s/n): ";
+            cin >> estado;
+            if (estado == 's' || estado == 'S') {
+                surtidor.activo = true;
+            } else if (estado == 'n' || estado == 'N') {
+                surtidor.activo = false;
+            } else {
+                cout << "Opción inválida. Debe ser 's' o 'n'.\n";
+            }
+        } while (estado != 's' && estado != 'S' && estado != 'n' && estado != 'N');
 
-// Constructor
-EstacionDeServicio::EstacionDeServicio(int _tanque, string _nombre, string _codigo, string _gerente, string _region, string _ventas, string _surtidores){
-    tanque = _tanque;
-    nombre = _nombre;
-    codigo = _codigo;
-    gerente = _gerente;
-    region = _region;
-    ventas = _ventas;
-    surtidores = _surtidores;
-}
-
-// Destructor
-EstacionDeServicio::~EstacionDeServicio(){
-}
-
-
-void EstacionDeServicio::setnombre(int _tanque, string _nombre, string _codigo, string _gerente, string _region, string _ventas, string _surtidores){ //Setter
-
-  //Funcion de cómo enviar  
-}
-
-void EstacionDeServicio::getnombre(int _tanque, string _nombre, string _codigo, string _gerente, string _region, string _ventas, string _surtidores){  //Getter
-    
-    //Funcion de obtener
-}
-
-
-
-
-
-class Surtidor{
-    private: //Atributos
-        string codigo, modelo;
-        bool activo;
-    public: //Metodos
-        Surtidor(string, string, bool); //Constructor
-        ~Surtidor(); // Destructor
-        registrar_venta(cantidad, combustible, metodo_pago, documento_cliente); //Registra una venta y actualiza el tanque
-        Activar();
-        Desactivar;
-        Consultar_historial();
+        archivo << "[" << surtidor.codigo << ", " << surtidor.modelo << ", " 
+                << (surtidor.activo ? "1" : "0") << "]";
         
-};
+        // solo si no es el último surtidor
+        if (i < numSurtidores - 1) {
+            archivo << ", ";
+        }
+    }
 
-Surtidor::Surtidor(string _codigo, string _modelo){
-    string
+    archivo << "]}\n";
+    archivo.close();
     
+    cout << "Estación agregada con " << numSurtidores << " surtidores y capacidades de combustible asignadas.\n";
 }
 
-Surtidor::~Surtidor();{
-    
+
+
+
+bool RedEstaciones::verificar_precios_region(const string& region, int& precioRegular, int& precioPremium, int& precioEcoExtra) {
+    // verifica si ya hay precios asignados para la región
+    ifstream archivo("datos.txt");
+    string linea;
+    while (getline(archivo, linea)) {
+        if (linea.find(", " + region + ",") != string::npos) {
+            // buscar los precios asignados
+            size_t posPrecios = linea.find("Precios: {");
+            if (posPrecios != string::npos) {
+                size_t posFinalPrecios = linea.find("}", posPrecios);
+                string precios = linea.substr(posPrecios + 10, posFinalPrecios - posPrecios - 10);
+                
+                // extrae precios
+                sscanf(precios.c_str(), "%d, %d, %d", &precioRegular, &precioPremium, &precioEcoExtra);
+                return true;
+            }
+        }
+    }
+    archivo.close();
+    return false; // Si no encuentra precios
 }
 
 
 
-class RedEstaciones(){
-    private:
-    string Estaciones;
-    public:
-    RedEstaciones(string _Estaciones); // Constructor 
-    ~RedEstaciones(); // Destructor
-    agregar_estacion(string _estacion);
-    eliminar_estacion(string _codigo);
-    fijar_prcio_combustible(string region, string categoria, string precio);
-    venta_nacional();
-    
-};
+//1 activo 0 inactivo
+bool RedEstaciones::verificar_surtidor_activo(int codigoSurtidor) {
+    ifstream archivo("datos.txt");
+    string linea;
+    while (getline(archivo, linea)) {
+        if (linea.find("[" + to_string(codigoSurtidor) + ",") != string::npos) {
+            size_t pos = linea.find(", ", linea.find(", " + to_string(codigoSurtidor) + ",") + 1);
+            if (pos != string::npos) {
+                bool estado = linea[pos + 2] == '1';
+                archivo.close();
+                return estado;
+            }
+        }
+    }
+    archivo.close();
+    return false;
+}
+
+bool RedEstaciones::todos_surtidores_inactivos(int codigoEstacion) {
+    ifstream archivo("datos.txt");
+    string linea;
+    while (getline(archivo, linea)) {
+        if (linea.find(", " + to_string(codigoEstacion) + ",") != string::npos) {
+            size_t pos = linea.find("Surtidores: [");
+            if (pos != string::npos) {
+                size_t endPos = linea.find("]", pos);
+                string surtidores = linea.substr(pos + 13, endPos - pos - 13);
+                size_t start = 0;
+                while ((start = surtidores.find("[", start)) != string::npos) {
+                    size_t commaPos = surtidores.find(",", start);
+                    if (commaPos != string::npos) {
+                        size_t estadoPos = surtidores.find(",", commaPos + 1);
+                        if (estadoPos != string::npos) {
+                            bool estado = surtidores[estadoPos + 2] == '1'; // vrifica si está activo
+                            if (estado) {
+                                archivo.close();
+                                return false; // minimo 1 activo
+                            }
+                        }
+                    }
+                    start++;
+                }
+                archivo.close();
+                return true;
+            }
+        }
+    }
+    archivo.close();
+    return false;
+}
+
+void RedEstaciones::asignar_precios_por_region() {
+    string region;
+    int precioRegular, precioPremium, precioEcoExtra;
+
+    cout << "Ingrese la región a la que desea asignar precios (sur, centro, norte): ";
+    getline(cin, region);
+
+    cout << "Ingrese el precio por litro de gasolina Regular: ";
+    cin >> precioRegular;
+    cout << "Ingrese el precio por litro de gasolina Premium: ";
+    cin >> precioPremium;
+    cout << "Ingrese el precio por litro de gasolina EcoExtra: ";
+    cin >> precioEcoExtra;
+
+    // Lee el archivo y actualiza estaciones
+    ifstream archivo("datos.txt");
+    ofstream temp("temp.txt");
+    string linea;
+    bool encontrado = false;
+
+    while (getline(archivo, linea)) {
+        if (linea.find(", " + region + ",") != string::npos) {
+            encontrado = true;
+
+            size_t posPrecios = linea.find("Precios: {");
+
+            if (posPrecios != string::npos) {
+                // si ya esxisten precis, sobreescribe precios existentes
+                size_t posFinalPrecios = linea.find("}", posPrecios);
+                linea.replace(posPrecios + 10, posFinalPrecios - posPrecios - 10, 
+                              to_string(precioRegular) + ", " + 
+                              to_string(precioPremium) + ", " + 
+                              to_string(precioEcoExtra));
+            } else {
+                // Si no tiene los agrega
+                size_t posFinal = linea.find("]}");//pos antes final
+                if (posFinal != string::npos) {
+                    linea.insert(posFinal, ", Precios: {" + to_string(precioRegular) + ", " 
+                                 + to_string(precioPremium) + ", " + to_string(precioEcoExtra) + "}");
+                }
+            }
+        }
+        temp << linea << "\n";
+    }
+
+    archivo.close();
+    temp.close();
+
+    remove("datos.txt");
+    rename("temp.txt", "datos.txt");
+
+    if (encontrado) {
+        cout << "Precios asignados o sobrescritos para todas las estaciones en la región " << region << ".\n";
+    } else {
+        cout << "No se encontraron estaciones en la región " << region << ".\n";
+    }
+}
 
 
 
 
-int main()
-{
-    
-    
-    std::cout<<"Hello World";
+void RedEstaciones::eliminar_estacion(int codigo) {
+    if (todos_surtidores_inactivos(codigo)) { // Verificar surtidores inactivos
+        ifstream archivo("datos.txt");
+        ofstream temp("temp.txt");
+        string linea;
+        bool encontrado = false;
+
+        while (getline(archivo, linea)) {
+            if (linea.find(", " + to_string(codigo) + ",") == string::npos) {
+                temp << linea << "\n";
+            } else {
+                encontrado = true;
+            }
+        }
+        archivo.close();
+        temp.close();
+        remove("datos.txt");
+        rename("temp.txt", "datos.txt");
+
+        if (encontrado) {
+            cout << "Estación eliminada.\n";
+        } else {
+            cout << "Código no encontrado.\n";
+        }
+    } else {
+        cout << "No se puede eliminar la estación. Todos los surtidores deben estar inactivos.\n";
+    }
+}
+
+void RedEstaciones::mostrar_estaciones() {
+    ifstream archivo("datos.txt");
+    string linea;
+    cout << "\n--- Estaciones Disponibles ---\n";
+    while (getline(archivo, linea)) {
+        if (linea.find("{") != string::npos) {
+            cout << linea << "\n";
+        }
+    }
+    archivo.close();
+}
+
+void RedEstaciones::agregar_surtidor(const Surtidor& nuevoSurtidor) {
+    int codigoEstacion;
+    mostrar_estaciones();
+    cout << "Ingrese el código de la estación a la que se agregará el surtidor: ";
+    cin >> codigoEstacion;
+
+    ifstream archivo("datos.txt");
+    ofstream temp("temp.txt");
+    string linea;
+    bool encontrado = false;
+
+    while (getline(archivo, linea)) {
+        if (linea.find(", " + to_string(codigoEstacion) + ",") != string::npos) {
+            encontrado = true;
+
+            //codigo nuevo surtidor
+            Surtidor surtidor = nuevoSurtidor;
+            surtidor.codigo = generarCodigoSurtidor();
+
+            cin.ignore();
+
+            char estado;
+            do {
+                cout << "El surtidor está activo? (s/n): ";
+                cin >> estado;
+                if (estado == 's' || estado == 'S') {
+                    surtidor.activo = true;
+                } else if (estado == 'n' || estado == 'N') {
+                    surtidor.activo = false;
+                } else {
+                    cout << "Opción inválida. Debe ser 's' o 'n'.\n";
+                }
+            } while (estado != 's' && estado != 'S' && estado != 'n' && estado != 'N');
+
+            // final lista surtidores y agregar
+            size_t pos = linea.find("]}");  // Buscar la posición antes de ']}'
+            if (pos != string::npos) {
+                // Insertar antes de ']}'
+                linea.insert(pos, ", [" + to_string(surtidor.codigo) + ", " + surtidor.modelo + ", " + (surtidor.activo ? "1" : "0") + "]");
+            }
+        }
+        temp << linea << "\n";
+    }
+
+    archivo.close();
+    temp.close();
+
+    remove("datos.txt");
+    rename("temp.txt", "datos.txt");
+
+    if (encontrado) {
+        cout << "Surtidor agregado a la estación " << codigoEstacion << ".\n";
+    } else {
+        cout << "Estación no encontrada.\n";
+    }
+}
+
+
+
+void RedEstaciones::eliminar_surtidor(int codigo) {
+    ifstream archivo("datos.txt");
+    ofstream temp("temp.txt");
+    string linea;
+    bool encontrado = false;
+
+    while (getline(archivo, linea)) {
+        if (linea.find("{" + to_string(codigo) + ",") == string::npos) {
+            temp << linea << "\n";
+        } else {
+            encontrado = true;
+        }
+    }
+    archivo.close();
+    temp.close();
+    remove("datos.txt");
+    rename("temp.txt", "datos.txt");
+
+    if (encontrado) {
+        cout << "Surtidor eliminado.\n";
+    } else {
+        cout << "Código no encontrado.\n";
+    }
+}
+
+void RedEstaciones::registrar_venta(const Venta& nuevaVenta) {
+    std::ifstream archivoLectura("datos.txt");
+    std::string linea;
+    std::string contenidoCompleto;
+    bool estacionEncontrada = false;
+    int cantidadActual = 0;
+    int cantidadVendida = nuevaVenta.cantidadCombustible;
+
+    while (std::getline(archivoLectura, linea)) {
+        if (linea.find(", " + std::to_string(nuevaVenta.estacionCodigo) + ",") != std::string::npos) {
+            estacionEncontrada = true;
+
+            // capacidad de categoría correspondiente
+            size_t posCapacidades = linea.find("Capacidades:");
+            if (posCapacidades != std::string::npos) {
+                if (nuevaVenta.categoria == "Regular") {
+                    size_t posRegular = linea.find("Regular:", posCapacidades) + 8;
+                    size_t posFin = linea.find(",", posRegular);
+                    cantidadActual = std::stoi(linea.substr(posRegular, posFin - posRegular));
+                } else if (nuevaVenta.categoria == "Premium") {
+                    size_t posPremium = linea.find("Premium:", posCapacidades) + 8;
+                    size_t posFin = linea.find(",", posPremium);
+                    cantidadActual = std::stoi(linea.substr(posPremium, posFin - posPremium));
+                } else if (nuevaVenta.categoria == "EcoExtra") {
+                    size_t posEcoExtra = linea.find("EcoExtra:", posCapacidades) + 9;
+                    size_t posFin = linea.find("}", posEcoExtra);
+                    cantidadActual = std::stoi(linea.substr(posEcoExtra, posFin - posEcoExtra));
+                }
+
+                // Verifica si hay suficiente combustible
+                if (cantidadVendida > cantidadActual) {
+                    std::cout << "No hay suficiente combustible disponible. Se venderá la cantidad disponible: " 
+                              << cantidadActual << " unidades.\n";
+                    cantidadVendida = cantidadActual; // Ajustar la cantidad vendida
+                }
+
+                // Actualiza capacidad
+                cantidadActual -= cantidadVendida;
+
+                // Actualizar archivo 
+                if (nuevaVenta.categoria == "Regular") {
+                    size_t posRegular = linea.find("Regular:", posCapacidades) + 8;
+                    size_t posFin = linea.find(",", posRegular);
+                    linea.replace(posRegular, posFin - posRegular, std::to_string(cantidadActual));
+                } else if (nuevaVenta.categoria == "Premium") {
+                    size_t posPremium = linea.find("Premium:", posCapacidades) + 8;
+                    size_t posFin = linea.find(",", posPremium);
+                    linea.replace(posPremium, posFin - posPremium, std::to_string(cantidadActual));
+                } else if (nuevaVenta.categoria == "EcoExtra") {
+                    size_t posEcoExtra = linea.find("EcoExtra:", posCapacidades) + 9;
+                    size_t posFin = linea.find("}", posEcoExtra);
+                    linea.replace(posEcoExtra, posFin - posEcoExtra, std::to_string(cantidadActual));
+                }
+            }
+
+            // Agregar venta al final
+            linea += ", " + nuevaVenta.fecha + ", " + nuevaVenta.hora + ", "
+                     + std::to_string(cantidadVendida) + ", "
+                     + nuevaVenta.categoria + ", " + nuevaVenta.metodoPago + ", "
+                     + nuevaVenta.documentoCliente;
+        }
+
+        contenidoCompleto += linea + "\n";
+    }
+
+    archivoLectura.close();
+
+    if (!estacionEncontrada) {
+        std::cout << "Estación no encontrada.\n";
+    }
+
+    std::ofstream archivoEscritura("datos.txt");
+    archivoEscritura << contenidoCompleto;
+    archivoEscritura.close();
+
+    std::cout << "Venta registrada.\n";
+}
+
+double RedEstaciones::obtener_precio_por_categoria(const std::string& linea, const std::string& categoria) {
+    size_t posPrecios = linea.find("Precios: {");
+    if (posPrecios != std::string::npos) {
+        size_t posInicio = posPrecios + 9; // Longitud de "Precios: {"
+        size_t posFin = linea.find("}", posInicio);
+        std::string preciosStr = linea.substr(posInicio, posFin - posInicio);
+        
+        // Extraer precios
+        int index = 0;
+        std::string precio = "";
+        for (size_t i = 0; i < preciosStr.size(); i++) {
+            if (preciosStr[i] != ',') {
+                precio += preciosStr[i];
+            } else {
+                // Se encuentra una coma, se procesa el precio
+                if (categoria == "Regular" && index == 0) return std::stod(precio);
+                else if (categoria == "Premium" && index == 1) return std::stod(precio);
+                else if (categoria == "EcoExtra" && index == 2) return std::stod(precio);
+                precio = "";
+                index++;
+            }
+        }
+        // Verifica el último precio en caso de que no haya coma final
+        if (categoria == "Regular" && index == 0) return std::stod(precio);
+        else if (categoria == "Premium" && index == 1) return std::stod(precio);
+        else if (categoria == "EcoExtra" && index == 2) return std::stod(precio);
+    }
+    return 0.0; // Si no se encuentra el precio, devuleve cero
+}
+
+
+void RedEstaciones::reportar_ventas_por_categoria(int estacionCodigo) {
+    std::ifstream archivoLectura("datos.txt");
+    std::string linea;
+
+    double totalRegular = 0.0;
+    double totalPremium = 0.0;
+    double totalEcoExtra = 0.0;
+
+    while (std::getline(archivoLectura, linea)) {
+        if (linea.find(", " + std::to_string(estacionCodigo) + ",") != std::string::npos) {
+            // Extrae precios de cada categoría
+            double precioRegular = obtener_precio_por_categoria(linea, "Regular");
+            double precioPremium = obtener_precio_por_categoria(linea, "Premium");
+            double precioEcoExtra = obtener_precio_por_categoria(linea, "EcoExtra");
+
+            // Procesa las ventas
+            size_t pos = linea.find("},");  //final de la definición de la estación
+            if (pos != std::string::npos) {
+                pos += 2;
+
+                // busca ventas
+                while (pos < linea.size()) {
+                    // Extrae cant vendida
+                    size_t posFin = linea.find(",", pos);
+                    if (posFin == std::string::npos) break; // Si no hay más comas
+
+                    int cantidadVendida = std::stoi(linea.substr(pos, posFin - pos));
+
+                    pos = posFin + 1; // Mover la posición después de la coma
+                    posFin = linea.find(",", pos);
+                    if (posFin == std::string::npos) break; // Si no hay más comas, salir
+
+                    std::string categoria = linea.substr(pos, posFin - pos);
+
+                    std::string categoriaLimpiada;
+                    for (char c : categoria) {
+                        if (c != ' ') {
+                            categoriaLimpiada += c;
+                        }
+                    }
+
+                    //total por categoría
+                    if (categoriaLimpiada == "Regular") {
+                        totalRegular += cantidadVendida * precioRegular;
+                    } else if (categoriaLimpiada == "Premium") {
+                        totalPremium += cantidadVendida * precioPremium;
+                    } else if (categoriaLimpiada == "EcoExtra") {
+                        totalEcoExtra += cantidadVendida * precioEcoExtra;
+                    }
+
+                    //siguiente venta
+                    pos = posFin + 1;
+                }
+            }
+            break; //después de encontrar la estación
+        }
+    }
+
+    archivoLectura.close();
+
+    // reporte
+    std::cout << "Total vendido - Estación " << estacionCodigo << ":\n";
+    std::cout << "Regular: $" << totalRegular << "\n";
+    std::cout << "Premium: $" << totalPremium << "\n";
+    std::cout << "EcoExtra: $" << totalEcoExtra << "\n";
+}
+
+
+void RedEstaciones::calcular_monto_total(int codigoEstacion) {
+    ifstream archivo("datos.txt");
+    string linea;
+    double total = 0;
+
+    while (getline(archivo, linea)) {
+        if (linea.find("{" + to_string(codigoEstacion) + ",") != string::npos) {
+            size_t pos = linea.rfind(", ");
+            string montoStr = linea.substr(pos + 2);
+            montoStr.pop_back();  // Elimina '}' del formato
+            total += stod(montoStr);
+        }
+    }
+    archivo.close();
+    cout << "Monto total en la estación " << codigoEstacion << ": $" << total << "\n";
+}
+
+void RedEstaciones::mostrar_datos() {
+    ifstream archivo("datos.txt");
+    string linea;
+    while (getline(archivo, linea)) {
+        cout << linea << "\n";
+    }
+    archivo.close();
+}
+
+void mostrar_menu() {
+    cout << "\n--- MENÚ PRINCIPAL ---\n";
+    cout << "1. Agregar Estación\n";
+    cout << "2. Eliminar Estación\n";
+    cout << "3. Agregar Surtidor\n";
+    cout << "4. Eliminar Surtidor\n";
+    cout << "5. Registrar Venta\n";
+    cout << "6. Calcular Monto Total en Estación\n";
+    cout << "7. Mostrar Datos\n";
+    cout << "8. Reportar Ventas por Categoría\n";
+    cout << "9. Activar o desactivar surtidor\n";
+    cout << "10. Asignar precios por región\n";
+    cout << "11. Salir\n";
+    cout << "Seleccione una opción: ";
+}
+
+int main() {
+    RedEstaciones red;
+    Estacion nuevaEstacion;
+    Surtidor nuevoSurtidor;
+    Venta nuevaVenta;
+    int opcion;
+
+    do {
+        mostrar_menu();
+        cin >> opcion;
+        cin.ignore();
+
+        switch (opcion) {
+        case 1:
+            cout << "Nombre de la estación: ";
+            getline(cin, nuevaEstacion.nombre);
+            cout << "Gerente: ";
+            getline(cin, nuevaEstacion.gerente);
+            cout << "Región: ";
+            getline(cin, nuevaEstacion.region);
+            cout << "Coordenadas GPS: ";
+            getline(cin, nuevaEstacion.coordenadas);
+            red.agregar_estacion(nuevaEstacion);
+            break;
+
+        case 2:
+            cout << "Código de la estación a eliminar: ";
+            cin >> nuevaEstacion.codigo;
+            red.eliminar_estacion(nuevaEstacion.codigo);
+            break;
+
+        case 3:
+            cout << "Modelo del surtidor: ";
+            cin.ignore();
+            getline(cin, nuevoSurtidor.modelo);
+            red.agregar_surtidor(nuevoSurtidor);
+            break;
+
+        case 4:
+            cout << "Código del surtidor a eliminar: ";
+            cin >> nuevoSurtidor.codigo;
+            red.eliminar_surtidor(nuevoSurtidor.codigo);
+            break;
+
+        case 5:
+            cout << "Código de la estación: ";
+            cin >> nuevaVenta.estacionCodigo;
+            cout << "Fecha (dd/mm/yyyy): ";
+            cin.ignore();  // Ignora cualquier carácter residual
+            getline(cin, nuevaVenta.fecha);
+            cout << "Hora (hh:mm): ";
+            getline(cin, nuevaVenta.hora);
+            cout << "Cantidad de combustible: ";
+            cin >> nuevaVenta.cantidadCombustible;
+            cout << "Categoría: ";
+            cin.ignore();
+            getline(cin, nuevaVenta.categoria);
+            cout << "Método de pago: ";
+            getline(cin, nuevaVenta.metodoPago);
+            cout << "Documento del cliente: "; 
+            getline(cin, nuevaVenta.documentoCliente);
+            red.registrar_venta(nuevaVenta);
+            break;
+
+        case 6:
+            cout << "Código de la estación: ";
+            int codigo;
+            cin >> codigo;
+            red.calcular_monto_total(codigo);
+            break;
+
+        case 7:
+            red.mostrar_datos();
+            break;
+
+        case 8:
+            cout << "Código de la estación para el reporte: ";
+            int codigoEstacion;
+            cin >> codigoEstacion;
+            red.reportar_ventas_por_categoria(codigoEstacion);
+            break;
+
+        case 9:
+            red.activar_desactivar_surtidor();
+            break;
+
+        case 10:
+            red.asignar_precios_por_region();
+            break;
+
+        case 11:
+            cout << "Saliendo del programa...\n";
+            break;
+
+        default:
+            cout << "Opción inválida. Intente de nuevo.\n";
+        }
+    } while (opcion != 11);
 
     return 0;
 }
